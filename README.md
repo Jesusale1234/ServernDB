@@ -1,5 +1,32 @@
 # ServernDB
 
+Instructions:
+1. Download the project
+2. Use MySQL Workbench to create the database.
+3. Create the database by pasting and executing the following query:
+
+   CREATE DATABASE scholar_db;
+    USE scholar_db;
+
+    CREATE TABLE articles (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(500),
+    authors VARCHAR(500),
+    publication_date VARCHAR(50),
+    abstract TEXT,
+    link VARCHAR(1000),
+    keywords VARCHAR(500),
+    cited_by INT
+  );
+
+4. Open the Java project in an IDE of preference.
+5. Execute the main class to start running the program.
+
+
+Sprint's main functions:
+
+Sprint 3: MySQL database used to store the searches for articles.
+
 Sprint 2: Google Scholar API used to search by author name
 
 Sprint 1: GitHub repository was created
