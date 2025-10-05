@@ -7,79 +7,156 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * MVC pattern controller.
- * It makes the HTTP request to the API
- * and converts the JSON response to obtain relevant data.
+ * Controller that obtains the data from the Google Scholar API
+ * and connects the storage of the data to the ArticleDAO class.
  */
 public class ScholarController {
-    private String apiKey;
+
+    // Personal API Key and ArticleDAO statement declaration.
+    public String apiKey = "4627cfced275509bd890149893b7a5625d67ead959bf189a180bbf998c7ea8f0";
+    private final ArticleDAO dao = new ArticleDAO();
 
     /**
-     * It obtains the SerpAPI Key.
-     * @param apiKey personal key to authenticate searches
+     *
+     * @param text Text that will be used a reference to make the keywords.
+     * @return Keywords in a string format.
      */
-    public ScholarController(String apiKey) {
-        this.apiKey = apiKey;
+    private String generateKeywords(String text) {
+        if (text == null || text.isEmpty()) return "N/A";
+
+        // Common words list that are going to be ignored.
+        String[] stopWords = {"the", "and", "of", "in", "on", "for", "with", "a", "an", "to", "by", "from", "or"};
+
+        // To include all the words in lowercase.
+        String lowerText = text.toLowerCase();
+
+        // To separate the words with a comma.
+        String[] words = lowerText.split("\\W+");
+
+        // Object that accumulates the keywords.
+        StringBuilder keywords = new StringBuilder();
+
+        // To go through each word of the summary.
+        for (String w : words) {
+
+
+            boolean isStopWord = false;
+
+            // The "for condition" is to determine if a word is a generic one considering the previous list of stopWords.
+            for (String stop : stopWords) {
+                if (w.equals(stop)) {
+                    isStopWord = true;
+                    break;
+                }
+            }
+            // To ignore short words and add the actual keywords into the list for a specific article.
+            if (!isStopWord && w.length() > 2) {
+                if (keywords.length() > 0) keywords.append(", ");
+                keywords.append(w);
+            }
+        }
+        return keywords.toString();
     }
 
     /**
-     * It searches on Google Scholar by author name with the 'q' parameter.
-     * @param author Full name of the author.
-     * @return Google Scholar results list including Title, URL link, and Author.
-     * @throws Exception If there is an error when doing the HTTP request.
+     * Obtains the results of the authors with the Google Scholar API.
+     *
+     * @param authors Author name.
+     * @return Articles found in the search.
      */
-    public List<ScholarResult> fetchResults(String author) throws Exception {
+    public List<ScholarResult> fetchResultsForAuthors(List<String> authors, int maxArticlesPerAuthor) {
+        List<ScholarResult> articles = new ArrayList<>();
 
-        // Encodes the author name to avoid errors in the string format.
-        String encodedAuthor = URLEncoder.encode(author, "UTF-8");
+        for (String authorName : authors) {
+            List<ScholarResult> authorArticles = new ArrayList<>();
+        try {
+            // URL to make the search, including the author name and the personal API Key.
+            String urlStr = "https://serpapi.com/search.json?engine=google_scholar&q=author:"
+                    + authorName.replace(" ", "+")
+                    + "&api_key=" + apiKey;
 
-        // Fabricates the URL link to use the API with the 'q' parameter using the author name and the API key.
-        String urlStr = "https://serpapi.com/search.json?engine=google_scholar&q=author:"
-                + encodedAuthor + "&api_key=" + apiKey;
+            URL url = new URL(urlStr);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
 
-        // Creates the HTTP connection.
-        URL url = new URL(urlStr);
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        conn.setRequestMethod("GET");
+            // To read the results of the search.
+            BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+            StringBuilder response = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) response.append(line);
+            reader.close();
 
-        // Reads the entire response provided by the search.
-        BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-        StringBuilder response = new StringBuilder();
-        String inputLine;
-        while ((inputLine = in.readLine()) != null) {
-            response.append(inputLine);
-        }
-        in.close();
+            // JSON parsing.
+            JSONObject jsonResponse = new JSONObject(response.toString());
+            JSONArray results = jsonResponse.optJSONArray("organic_results");
 
-        // Parses the response in a JSON format to a string format.
-        JSONObject jsonResponse = new JSONObject(response.toString());
+            if (results == null) return articles;
 
-        // We use a "for" condition to go through all the elements in the organic results category.
-        List<ScholarResult> list = new ArrayList<>();
-        if (jsonResponse.has("organic_results")) {
-            JSONArray results = jsonResponse.getJSONArray("organic_results");
+            // To check every important element of each individual article of an author.
+            int count = 0;
+            for (int i = 0; i < results.length() && count < maxArticlesPerAuthor; i++) {
+                JSONObject article = results.getJSONObject(i);
 
-            for (int i = 0; i < results.length(); i++) {
-                JSONObject item = results.getJSONObject(i);
+                // To search for and specific element and assign it, we use an individual key for each string
+                // considering the format used in the API, and if there is no element found, we show messages such as: No title, Unavailable, etc.
+                String title = article.optString("title", "No title");
+                String link = article.optString("link", "Unavailable");
+                String summary = article.optString("snippet", "No abstract");
+                String keywords = generateKeywords(summary);
 
-                String title = item.optString("title");
-                String link = item.optString("link");
-                String summary = item.optString("snippet");
+                JSONObject citedByObj = article.optJSONObject("inline_links") != null
+                        ? article.getJSONObject("inline_links").optJSONObject("cited_by")
+                        : null;
+                int citedBy = (citedByObj != null) ? citedByObj.optInt("total", 0) : 0;
 
-                String publicationInfo = "";
-                if (item.has("publication_info")) {
-                    JSONObject pubInfo = item.getJSONObject("publication_info");
-                    publicationInfo = pubInfo.optString("summary", "Publication Info not found");
+                String author = "Unknown";
+                String publicationDate = "N/A";
+
+                // To read the information inside the "publication_info"
+                JSONObject pubInfo_obj = article.optJSONObject("publication_info");
+
+                // To check if the information inside that element is not null. If it is not, we read the summary.
+                String pubInfo = (pubInfo_obj != null)
+                        ? pubInfo_obj.optString("summary", "No summary")
+                        : "No summary";
+
+                // We obtain the year included inside the summary to add it into the table as "publicationDate".
+                if (pubInfo.contains(" - ")) {
+                    String[] parts = pubInfo.split(" - ");
+                    author = parts[0];
+                    if (parts.length > 1) publicationDate = parts[1];
                 }
 
-                list.add(new ScholarResult(title, link, summary, publicationInfo));
+                // We use the ScholarResult function to create the model and use the previously obtained information.
+                ScholarResult result = new ScholarResult(
+                        title,
+                        author,
+                        publicationDate,
+                        summary,
+                        link,
+                        keywords,
+                        citedBy
+                );
+
+                // To add a single article searched into the list.
+                authorArticles.add(result);
+
+                // To store in the database.
+                dao.saveArticle(result);
+                count++;
             }
+
+
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-        return list;
+        // To add all the list of the articles into the list.
+        articles.addAll(authorArticles);
+        }
+        return articles;
     }
 }

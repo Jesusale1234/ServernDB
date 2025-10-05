@@ -1,34 +1,70 @@
 package org.example;
 
-import java.util.List;
-
 /**
- * Class that represents Google Scholar search data results
- * It only contains relevant data: Title and URL link
+ * Represents the articles received from the search. It storages the information to display it in console.
  */
 public class ScholarResult {
-    private String title;
-    private String link;
-    private String summary;
-    private String publicationInfo;
 
-    // To initialize title and link
-    public ScholarResult(String title, String link,  String summary, String publicationInfo) {
+    // It includes all the elements listed in the database to add them to it after they are stored.
+    private String title;
+    private String authors;
+    private String publicationDate;
+    private String Summary;
+    private String link;
+    private String keywords;
+    private int citedBy;
+
+    // The function used to store the elements mentioned in the search.
+    public ScholarResult(String title, String authors, String publicationDate,
+                         String Summary, String link, String keywords, int citedBy) {
         this.title = title;
+        this.authors = authors;
+        this.publicationDate = publicationDate;
+        this.Summary = Summary;
         this.link = link;
-        this.summary = summary;
-        this.publicationInfo = publicationInfo;
+        this.keywords = keywords;
+        this.citedBy = citedBy;
     }
 
-    // To get the title when doing the search
-    public String getTitle() { return title; }
+    // Getters of each element.
+    public String getTitle() {
+        return title;
+    }
 
-    // To get the URL link when doing the search
-    public String getLink() { return link; }
+    public String getAuthors() {
+        return authors;
+    }
 
-    // To get a brief description of the article
-    public String getSummary() { return summary; }
+    public String getPublicationDate() {
+        return publicationDate;
+    }
 
-    // To get the authors, date of publication, etc.
-    public String getPublicationInfo() { return publicationInfo; }
+    public String getSummary() {
+        return Summary;
+    }
+
+    public String getLink() {
+        return link;
+    }
+
+    public String getKeywords() {
+        return keywords;
+    }
+
+    public int getCitedBy() {
+        return citedBy;
+    }
+
+    // Turns the data into string to include these elements with a good format in the console.
+    public String toString() {
+        return "ScholarResult{" +
+                "title='" + title + '\'' +
+                ", authors='" + authors + '\'' +
+                ", publicationDate='" + publicationDate + '\'' +
+                ", abstractSummary='" + Summary + '\'' +
+                ", link='" + link + '\'' +
+                ", keywords='" + keywords + '\'' +
+                ", citedBy=" + citedBy +
+                '}';
+    }
 }
